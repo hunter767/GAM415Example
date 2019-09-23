@@ -9,7 +9,9 @@ public class GAM415Example : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		PublicDependencyModuleNames.AddRange(new string[] {
-            "Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay", "ProceduralMeshComponent", "RuntimeMeshComponent"
+            		"Core", "CoreUObject", "Engine", "InputCore", "HeadMountedDisplay",
+			"ProceduralMeshComponent", "RuntimeMeshComponent",
+			"RHI", "RenderCore"
         });
 	}
 }
