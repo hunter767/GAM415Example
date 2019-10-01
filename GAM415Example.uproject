@@ -9,8 +9,16 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
 			"AdditionalDependencies": [
-				"Engine", "ProceduralMeshComponent", "RuntimeMeshComponent"
+				"Engine",
+				"ProceduralMeshComponent",
+				"RuntimeMeshComponent"
 			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "Foo",
+			"Enabled": true
 		}
 	]
 }
