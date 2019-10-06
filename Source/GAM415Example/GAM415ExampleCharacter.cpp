@@ -46,7 +46,7 @@ AGAM415ExampleCharacter::AGAM415ExampleCharacter()
 	FP_Gun->bCastDynamicShadow = false;
 	FP_Gun->CastShadow = false;
 	// FP_Gun->SetupAttachment(Mesh1P, TEXT("GripPoint"));
-	FP_Gun->SetupAttachment(RootComponent);
+	//FP_Gun->SetupAttachment(RootComponent);					//Module 5 tutorial
 
 	FP_MuzzleLocation = CreateDefaultSubobject<USceneComponent>(TEXT("MuzzleLocation"));
 	FP_MuzzleLocation->SetupAttachment(FP_Gun);
@@ -81,6 +81,16 @@ AGAM415ExampleCharacter::AGAM415ExampleCharacter()
 
 	// Uncomment the following line to turn motion controllers on by default:
 	//bUsingMotionControllers = true;
+
+	//Module 5 Tutorial
+	EndColorBuildup = 0;
+	EndColorBuildupDirection = 1;
+	PixelShaderTopLeftColor = FColor::Green;
+	ComputeShaderSimulationSpeed = 1.0;
+	ComputeShaderBlend = 0.5f;
+	ComputeShaderBlendScalar = 0;
+	TotalElapsedTime = 0;
+
 }
 
 void AGAM415ExampleCharacter::BeginPlay()
@@ -102,6 +112,11 @@ void AGAM415ExampleCharacter::BeginPlay()
 		VR_Gun->SetHiddenInGame(true, true);
 		Mesh1P->SetHiddenInGame(false, true);
 	}
+
+	//Module 5 tutorial
+	PixelShading = new FPixelShaderUsageExample(PixelShaderTopLeftColor, GetWorld()->Scene->GetFeatureLevel());
+	ComputeShading = new FComputeShaderUsageExample(ComputeShaderSimulationSpeed, 1024, 1024, GetWorld()->Scene->GetFeatureLevel());
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -135,10 +150,18 @@ void AGAM415ExampleCharacter::SetupPlayerInputComponent(class UInputComponent* P
 	PlayerInputComponent->BindAxis("TurnRate", this, &AGAM415ExampleCharacter::TurnAtRate);
 	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 	PlayerInputComponent->BindAxis("LookUpRate", this, &AGAM415ExampleCharacter::LookUpAtRate);
+
+	//Module 5 tutorial - don't forget to change class name to this class
+	//ShaderPluginDemo Specific input mappings  
+	InputComponent->BindAction("SavePixelShaderOutput", IE_Pressed, this, &AGAM415ExampleCharacter::SavePixelShaderOutput);
+	InputComponent->BindAction("SaveComputeShaderOutput", IE_Pressed, this, &AGAM415ExampleCharacter::SaveComputeShaderOutput);
+	InputComponent->BindAxis("ComputeShaderBlend", this, &AGAM415ExampleCharacter::ModifyComputeShaderBlend);
 }
 
 void AGAM415ExampleCharacter::OnFire()
 {
+	// Module 5 Tutorial Remove this section
+	/*
 	// try and fire a projectile
 	if (ProjectileClass != NULL)
 	{
@@ -163,6 +186,29 @@ void AGAM415ExampleCharacter::OnFire()
 
 				// spawn the projectile at the muzzle
 				World->SpawnActor<AGAM415ExampleProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, ActorSpawnParams);
+			}
+		}
+	}
+	*/
+
+	//Module 5 replacement code - switch from projectile to line trace hit scan
+	FHitResult HitResult;
+	FVector StartLocation = FirstPersonCameraComponent->GetComponentLocation();
+	FRotator Direction = FirstPersonCameraComponent->GetComponentRotation();
+	FVector EndLocation = StartLocation + Direction.Vector() * 10000;
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, StartLocation, EndLocation, ECC_Visibility, QueryParams)) {
+		TArray <UStaticMeshComponent*> StaticMeshComponents = TArray <UStaticMeshComponent*>();
+		AActor* HitActor = HitResult.GetActor();
+		if (NULL != HitActor) {
+			HitActor->GetComponents <UStaticMeshComponent>(StaticMeshComponents);
+			for (int32 i = 0; i < StaticMeshComponents.Num(); i++) {
+				UStaticMeshComponent * CurrentStaticMeshPtr = StaticMeshComponents[i];
+				CurrentStaticMeshPtr->SetMaterial(0, MaterialToApplyToClickedObject);
+				UMaterialInstanceDynamic* MID = CurrentStaticMeshPtr->CreateAndSetMaterialInstanceDynamic(0);
+				UTexture* CastedRenderTarget = Cast <UTexture>(RenderTarget);
+				MID->SetTextureParameterValue("InputTexture", CastedRenderTarget);
 			}
 		}
 	}
@@ -296,4 +342,46 @@ bool AGAM415ExampleCharacter::EnableTouchscreenMovement(class UInputComponent* P
 	}
 	
 	return false;
+}
+
+
+
+//Module 5 Tutorial
+void AGAM415ExampleCharacter::BeginDestroy()
+{
+	Super::BeginDestroy();
+	if (PixelShading) {
+		delete PixelShading;
+	}
+	if (ComputeShading) {
+		delete ComputeShading;
+	}
+}
+
+//Saving functions
+void AGAM415ExampleCharacter::SavePixelShaderOutput() {
+	PixelShading->Save();
+}
+void AGAM415ExampleCharacter::SaveComputeShaderOutput() {
+	ComputeShading->Save();
+}
+void AGAM415ExampleCharacter::ModifyComputeShaderBlend(float NewScalar) {
+	ComputeShaderBlendScalar = NewScalar;
+}
+void AGAM415ExampleCharacter::Tick(float DeltaSeconds) {
+	Super::Tick(DeltaSeconds);
+	TotalElapsedTime += DeltaSeconds;
+	if (PixelShading) {
+		EndColorBuildup = FMath::Clamp(EndColorBuildup + DeltaSeconds * EndColorBuildupDirection, 0.0f, 1.0f);
+		if (EndColorBuildup >= 1.0 || EndColorBuildup <= 0) {
+			EndColorBuildupDirection *= -1;
+		}
+		FTexture2DRHIRef InputTexture = NULL;
+		if (ComputeShading) {
+			ComputeShading->ExecuteComputeShader(TotalElapsedTime);
+			InputTexture = ComputeShading->GetTexture(); //This is the output texture from the compute shader that we will pass to the pixel shader. 
+		}
+		ComputeShaderBlend = FMath::Clamp(ComputeShaderBlend + ComputeShaderBlendScalar * DeltaSeconds, 0.0f, 1.0f);
+		PixelShading->ExecutePixelShader(RenderTarget, InputTexture, FColor(EndColorBuildup * 255, 0, 0, 255), ComputeShaderBlend);
+	}
 }

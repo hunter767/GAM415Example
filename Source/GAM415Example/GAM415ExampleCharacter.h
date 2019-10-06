@@ -1,8 +1,14 @@
 // Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-
 #include "CoreMinimal.h"
+
+#include "Engine.h"									//For UTextureRenderTarget2D - Should just forward declare
+
+//Module 5 Tutorial - Headers for shader plugins
+#include "PixelShaderUsageExample.h"
+#include "ComputeShaderUsageExample.h"  
+
 #include "GameFramework/Character.h"
 #include "GAM415ExampleCharacter.generated.h"
 
@@ -137,6 +143,35 @@ public:
 	FORCEINLINE class USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
 	/** Returns FirstPersonCameraComponent subobject **/
 	FORCEINLINE class UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
+
+
+/************************************************************************/
+/* Plugin Shader Demo variables!                                        */
+/************************************************************************/
+public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShaderDemo)
+	FColor PixelShaderTopLeftColor;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShaderDemo)
+	float ComputeShaderSimulationSpeed;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShaderDemo)
+	UMaterialInterface * MaterialToApplyToClickedObject;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ShaderDemo)
+	UTextureRenderTarget2D * RenderTarget;
+protected:
+	virtual void BeginDestroy() override;
+	virtual void Tick(float DeltaSeconds) override;
+private:
+	FPixelShaderUsageExample * PixelShading;
+	FComputeShaderUsageExample * ComputeShading;
+	float EndColorBuildup;
+	float EndColorBuildupDirection;
+	float ComputeShaderBlendScalar;
+	float ComputeShaderBlend;
+	float TotalElapsedTime;
+	void ModifyComputeShaderBlend(float NewScalar);
+	void SavePixelShaderOutput();
+	void SaveComputeShaderOutput();
 
 };
 
